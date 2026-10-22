@@ -74,7 +74,7 @@ export default function Home() {
   useEffect(() => {
     async function getFlavours() {
       try {
-        const res = await fetch("http://10.151.0.58:3000/api/v1/flavours", {
+        const res = await fetch("/api/backend/v1/flavours", {
             credentials: "include"
         });
 
@@ -88,7 +88,7 @@ export default function Home() {
 
     async function getInstances() {
       try {
-        const res = await fetch("http://10.151.0.58:3000/api/v1/vviz", {
+        const res = await fetch("/api/backend/v1/vviz", {
           credentials: "include",
         });
         const data: Instance[] = await res.json();
@@ -108,8 +108,9 @@ export default function Home() {
     console.log(flavour);
 
     try {
-      const response = await fetch("http://10.151.0.58:3000/api/v1/vviz", {
+      const response = await fetch("/api/backend/v1/vviz", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ flavour }),
       });

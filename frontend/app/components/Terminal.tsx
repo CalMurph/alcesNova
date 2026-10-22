@@ -6,7 +6,7 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 
-export type TerminalConnection = { type: 'connect'; keyPath: string }
+export type TerminalConnection = { type: 'connect'; }
 
 export default function VMTerminal({
   socketRef,
@@ -30,7 +30,7 @@ export default function VMTerminal({
     terminal.open(containerRef.current)
     fit.fit()
 
-    const ws = new WebSocket('ws://localhost:3001/terminal')
+    const ws = new WebSocket('ws://10.151.0.58:3003/terminal')
     socketRef.current = ws
     let disposed = false
 
@@ -93,3 +93,4 @@ export default function VMTerminal({
     />
   )
 }
+

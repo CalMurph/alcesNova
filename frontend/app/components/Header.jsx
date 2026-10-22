@@ -47,13 +47,13 @@ function HeaderNavigation() {
                <>
                   <Link
                      href="/create-instance"
-                     className="font-sans text-lg transition-opacity hover:opacity-90"
+                     className="font-chalet text-lg transition-opacity hover:opacity-90"
                   >
                      Log In
                   </Link>
                   <Link
                      href="/create-instance"
-                     className="font-sans rounded-full border border-purple-400 bg-purple-400 px-2 py-2 text-md font-medium text-black transition-opacity hover:opacity-90"
+                     className="font-chalet rounded-full border border-purple-400 bg-purple-400/20 px-2 py-2 text-md font-medium text-white transition-opacity hover:opacity-90"
                   >
                      Sign Up
                   </Link>
@@ -61,7 +61,7 @@ function HeaderNavigation() {
             ) : (
                <Link
                   href="/"
-                  className="font-sans text-lg transition-opacity hover:opacity-90"
+                  className=" text-lg transition-opacity hover:opacity-90"
                >
                   Calum Murphy
                </Link>

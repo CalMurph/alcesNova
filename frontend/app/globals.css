@@ -26,7 +26,6 @@ body {
   font-family: var(--font-chalet), sans-serif;
 }
 
-
 @keyframes gradient-flow {
   0%, 100% {
     background-position: 0% 50%;
@@ -51,28 +50,19 @@ h1 {
   }
 }
 
-.starry-sky {
-background-image:
-  radial-gradient(circle at 25px 35px, white 1px, #a9c9ff66 3px, transparent 7px),
-  radial-gradient(circle at 120px 90px, white 1px, #a9c9ff66 3px, transparent 7px),
-  radial-gradient(circle at 80px 150px, white 1.5px, #a9c9ff66 4px, transparent 8px);
-opacity: 0.85;
-  background-size: 180px 180px, 260px 220px, 360px 300px;
-  opacity: 0.7;
-  
+
+
+@keyframes distant-twinkle {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
 }
 
-.starry-sky {
-  /* Keep your existing background-image, background-size and opacity */
+.space-star-twinkle {
+  animation: distant-twinkle 9s ease-in-out infinite;
+}
 
-  -webkit-mask-image: radial-gradient(
-    ellipse 55% 55% at 50% 45%,
-    transparent 35%,
-    black 75%
-  );
-  mask-image: radial-gradient(
-    ellipse 55% 55% at 50% 45%,
-    transparent 35%,
-    black 75%
-  );
+@media (prefers-reduced-motion: reduce) {
+  .space-star-twinkle {
+    animation: none;
+  }
 }

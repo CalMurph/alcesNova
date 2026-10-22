@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { GoInfinity } from "react-icons/go";
+import { FaHourglass } from "react-icons/fa6";
 import Image from "next/image";
 import {
   FiArrowLeft,
@@ -45,24 +47,36 @@ const fakeData: Instance = {
   timeLimit: "1:00:00",
 };
 
-function toSeconds(time: string) {
-    return time.split(":").reduce((acc, val) => acc * 60 + Number(val), 0)
+function toSeconds(time: string): number {
+  const [days, duration] = time.includes('-')
+    ? time.split('-')
+    : ['0', time];
+
+  const seconds = duration
+    .split(':')
+    .reduce((acc, val) => acc * 60 + Number(val), 0);
+
+  return Number(days) * 86400 + seconds;
 }
 
 function formatTime(seconds: number) {
-  const hours = Math.floor(seconds / 3600);
+    
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
 
-  return [hours, minutes, secs]
+  const time = [hours, minutes, secs]
     .map((value) => String(value).padStart(2, "0"))
     .join(":");
+
+  return days > 0 ? `${days} days ${hours} hours` : time;
 }
 
 type ConnectionMethod = "web-terminal" | "vscode" | "manual-ssh";
 
 // Set to false when ready to use the real API
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false;
 
 export default function InstancePage() {
   const { id } = useParams<{ id: string }>();
@@ -70,34 +84,49 @@ export default function InstancePage() {
 
   
 
-  const [instance, setInstance] = useState<Instance | null>(fakeData);
+  const [instance, setInstance] = useState<Instance | null>(null);
 
   const [loading, setLoading] = useState(!USE_MOCK_DATA);
 
   const [selectedConnection, setSelectedConnection] =
     useState<ConnectionMethod>("web-terminal");
 
-  const [keyPath, setKeyPath] = useState("");
+
   const [terminalConnection, setTerminalConnection] =
     useState<TerminalConnection | null>(null);
-  const [terminalError, setTerminalError] = useState("");
+
   const [copied, setCopied] = useState(false);
   const [flavour, setFlavour] = useState<Flavour | null>(null);
 
   const terminalSocketRef = useRef<WebSocket | null>(null);
 
-const [timeRemaining, setTimeRemaining] = useState(() =>
-  instance
-    ? Math.max(0, toSeconds(instance.timeLimit) - toSeconds(instance.uptime))
-    : 0
-);
+const [timeRemaining, setTimeRemaining] = useState(0);
 
 useEffect(() => {
-  if (!instance) return;
+  if (!instance || !instance.timeLimit) return;
+  
 
-  const interval = setInterval(() => {
-    setTimeRemaining((prev) => Math.max(0, prev - 1));
-  }, 1000);
+ 
+     const remaining = Math.max(
+    0,
+    toSeconds(instance.timeLimit) - toSeconds(instance.uptime)
+  );
+
+  
+
+
+
+  const endTime = Date.now() + remaining * 1000;
+
+  const updateRemaining = () => {
+    setTimeRemaining(
+      Math.max(0, Math.ceil((endTime - Date.now()) / 1000))
+    );
+  };
+
+  updateRemaining();
+
+  const interval = setInterval(updateRemaining, 1000);
 
   return () => clearInterval(interval);
 }, [instance]);
@@ -110,7 +139,9 @@ useEffect(() => {
 
     async function getInstance() {
       try {
-        const res = await fetch(`http://10.151.0.58:3000/api/v1/vviz/${id}`);
+        const res = await fetch(`/api/backend/v1/vviz/${id}`, {
+            credentials: "include"
+        });
 
         if (!res.ok) {
           throw new Error("Unable to fetch instance");
@@ -138,7 +169,9 @@ useEffect(() => {
 
     async function getFlavour() {
       const res = await fetch(
-        `http://10.151.0.58:3000/api/v1/flavours/${instance?.flavour}`,
+        `/api/backend/v1/flavours/${instance?.flavour}`, {
+            credentials: "include"
+        },
       );
 
       if (!res.ok) {
@@ -151,20 +184,12 @@ useEffect(() => {
     getFlavour()
   }, [instance]);
 
-  function handleTerminalConnect(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setTerminalError("");
+function handleTerminalConnect() {
 
-    if (!keyPath.trim()) {
-      setTerminalError("Please enter your SSH key path.");
-      return;
-    }
-
-    setTerminalConnection({
-      type: "connect",
-      keyPath: keyPath.trim(),
-    });
-  }
+  setTerminalConnection({
+    type: "connect",
+  });
+}
 
   function handleTerminalDisconnect() {
     const socket = terminalSocketRef.current;
@@ -174,7 +199,8 @@ useEffect(() => {
     }
 
     setTerminalConnection(null);
-    setTerminalError("");
+
+
   }
 
   function changeConnection(method: ConnectionMethod) {
@@ -315,21 +341,28 @@ useEffect(() => {
               </>
             )}
 
-            <ResourceCard
-              icon={<FiClock />}
-              label="UPTIME"
-              value={instance.uptime || "Pending..."}
-            />
+        
+
             
-            {instance && instance.timeLimit && instance.uptime && (
+            
+            {instance  && instance.uptime && (
                   <ResourceCard
-              icon={<FiClock />}
+              icon={<FaHourglass />}
               label="TIME REMAINING"
-              value={formatTime(timeRemaining)} 
+              value= {instance.timeLimit ? formatTime(timeRemaining) : <GoInfinity className="text-gray-200 mx-auto" size={35} />}
             />
 
 
             )}
+
+             <ResourceCard
+              icon={<FiClock />}
+              label="UPTIME"
+              value={instance.uptime}
+            />
+
+            
+
 
 
           </div>
@@ -397,43 +430,14 @@ useEffect(() => {
                   </div>
 
                   {!terminalConnection ? (
-                    <form
-                      onSubmit={handleTerminalConnect}
-                      className="max-w-xl space-y-5"
-                    >
-                      <div>
-                        <label
-                          htmlFor="ssh-key"
-                          className="mb-2 block text-md tracking-wider font-medium text-slate-300"
-                        >
-                          SSH key path
-                        </label>
+                   
+                     
 
-                        <input
-                          id="ssh-key"
-                          type="text"
-                          value={keyPath}
-                          onChange={(event) => setKeyPath(event.target.value)}
-                          placeholder="~/.ssh/id_ed25519"
-                          autoComplete="off"
-                          disabled={!isRunning}
-                          className="w-full rounded-xl border border-white/10 bg-[#070A14] px-4 py-3 font-mono text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-purple-400/60"
-                        />
-
-                        <p className="mt-2 text-xs text-slate-500">
-                          Development mode: the key must exist on the backend
-                          machine.
-                        </p>
-                      </div>
-
-                      {terminalError && (
-                        <p role="alert" className="text-sm text-red-400">
-                          {terminalError}
-                        </p>
-                      )}
+                     
+                     
 
                       <button
-                        type="submit"
+                        onClick={handleTerminalConnect}
                         disabled={!isRunning}
                         className="flex cursor-pointer items-center gap-3 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 px-7 py-3 font-medium text-white transition hover:from-blue-500 hover:to-purple-500 disabled:cursor-not-allowed disabled:opacity-40"
                       >
@@ -441,7 +445,7 @@ useEffect(() => {
                         Connect to Computer
                         <FiArrowRight />
                       </button>
-                    </form>
+                  
                   ) : (
                     <div className="overflow-hidden rounded-xl border border-white/10 bg-black">
                       <div className="flex items-center justify-between border-b border-white/10 bg-[#111421] px-4 py-3">
@@ -471,6 +475,7 @@ useEffect(() => {
                       </div>
                     </div>
                   )}
+                   
                 </div>
               )}
 
@@ -620,7 +625,7 @@ function ResourceCard({
 }: {
   icon: React.ReactNode;
   label: string;
-  value: string | number;
+  value: string | number | React.ReactNode;
 }) {
   return (
     <div className="rounded-xl border border-white/10 bg-[#141827]/90 p-5 transition-colors hover:border-purple-400/20">
@@ -632,7 +637,7 @@ function ResourceCard({
         </span>
       </div>
 
-      <p className="text-xl font-semibold text-white">{value}</p>
+      <span className="text-xl font-semibold text-white">{value}</span>
     </div>
   );
 }
