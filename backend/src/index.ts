@@ -1,165 +1,50 @@
+import { Hono } from "hono";
+import { serve } from "@hono/node-server";
+import { cors } from "hono/cors";
+import { logger } from "hono/logger";
+import { mkdir } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { appendFile, readFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import ssh2 from "ssh2";
 
-import { Hono } from 'hono'
-import { serve, upgradeWebSocket } from '@hono/node-server'
-import { WebSocketServer } from 'ws'
-import { Client, type ClientChannel } from 'ssh2'
-import { readFileSync, realpathSync, statSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { isAbsolute, join, sep } from 'node:path'
-import { cors } from 'hono/cors'
+const execFileAsync = promisify(execFile);
 
-const app = new Hono()
+const app = new Hono();
 
-app.use(cors())
+app.use("*", cors());
+app.use("*", logger());
 
-app.get('/terminal', upgradeWebSocket((c) => {
-  const ssh = new Client()
-  let shell: ClientChannel | undefined
-  let cols = 80
-  let rows = 24
-  let connectionStarted = false
-  let socketClosed = false
-  const origin = c.req.header('Origin')
-  const allowedOrigins = new Set([
-    process.env.FRONTEND_ORIGIN ?? 'http://localhost:3000',
-    'http://127.0.0.1:3000'
-  ])
+app.get("/", async (c) => {
+  const keyPath = join(homedir(), "TESTING", "id_ed25519");
 
-  function readSshKey(path: string): string {
-    const home = homedir()
-    const expandedPath = path.startsWith('~/') ? join(home, path.slice(2)) : path
-    if (!isAbsolute(expandedPath)) throw new Error('Key path must be absolute')
+  await execFileAsync("ssh-keygen", ["-t", "ed25519", "-f", keyPath, "-N", ""]);
 
-    const sshDirectory = realpathSync(join(home, '.ssh'))
-    const filePath = realpathSync(expandedPath)
-    if (!filePath.startsWith(sshDirectory + sep)) {
-      throw new Error('Key path must be inside ~/.ssh')
-    }
+  return c.json("SSH key pair generated!", 200);
+});
 
-    const file = statSync(filePath)
-    if (!file.isFile() || file.size > 64 * 1024) {
-      throw new Error('Invalid key file')
-    }
+app.post("/terminal", async (c) => {
+  const dir = join(homedir(), "TESTING");
+  const authorizedKeysPath = join(dir, "testing_keys");
 
-    return readFileSync(filePath, 'utf8')
-  }
+  const { generateKeyPairSync } = ssh2.utils;
 
-  return {
-    onOpen(_event, ws) {
-      if (!origin || !allowedOrigins.has(origin)) {
-        ws.close(1008, 'Origin not allowed')
-        return
-      }
+  const keys = generateKeyPairSync("ed25519");
 
-      ssh.on('ready', () => {
-        if (socketClosed) {
-          ssh.end()
-          return
-        }
+   await appendFile(
+  authorizedKeysPath,
+  keys.public.trimEnd() + "\n",
+  { mode: 0o600 }
+);
 
-        ssh.shell(
-          { term: 'xterm-256color', cols, rows },
-          (err, stream) => {
-            if (err) {
-              ws.send(`SSH shell error: ${err.message}\r\n`)
-              ssh.end()
-              return
-            }
+  return c.json({ success: true });
+});
 
-            shell = stream
+serve({
+  fetch: app.fetch,
+  port: 3003,
+});
 
-            // VM output -> browser
-            stream.on('data', (data: Buffer) => {
-              ws.send(data.toString('utf8'))
-            })
-
-            stream.on('close', () => {
-              ssh.end()
-              ws.close()
-            })
-          }
-        )
-      })
-
-      ssh.on('error', (err) => {
-        console.error('SSH error:', err)
-        try {
-          ws.send(`SSH connection failed\r\n`)
-          ws.close()
-        } catch {}
-      })
-
-    },
-
-    onMessage(event, ws) {
-      if (!origin || !allowedOrigins.has(origin) || socketClosed ||
-          typeof event.data !== 'string') return
-
-      try {
-        const message = JSON.parse(event.data)
-
-        if (message.type === 'connect' && !connectionStarted) {
-          connectionStarted = true
-
-          try {
-            if (typeof message.keyPath !== 'string' ||
-                !message.keyPath.trim() ||
-                message.keyPath.length > 1024) {
-              throw new Error('Invalid key input')
-            }
-            const privateKey = readSshKey(message.keyPath)
-
-            ssh.connect({
-              host: '10.151.0.58',
-              port: 22,
-              username: 'clusteruser',
-              privateKey
-            })
-          } catch (error) {
-            console.error('Terminal connection setup failed:', error)
-            ws.send('Unable to use the SSH key. Check the key and try again.\r\n')
-            ws.close(1008, 'Invalid SSH key')
-          }
-          return
-        }
-
-        if (message.type === 'input' &&
-            typeof message.data === 'string') {
-          // Browser input -> VM
-          shell?.write(message.data)
-        }
-
-        if (message.type === 'resize' &&
-            Number.isInteger(message.cols) &&
-            Number.isInteger(message.rows) &&
-            message.cols > 0 && message.cols <= 500 &&
-            message.rows > 0 && message.rows <= 200) {
-          cols = message.cols
-          rows = message.rows
-          shell?.setWindow(rows, cols, 0, 0)
-        }
-      } catch {
-        // Ignore invalid messages
-      }
-    },
-
-    onClose() {
-      socketClosed = true
-      ssh.end()
-    }
-  }
-}))
-
-const wss = new WebSocketServer({ noServer: true })
-
-serve(
-  {
-    fetch: app.fetch,
-    port: 3001,
-    hostname: '127.0.0.1',
-    websocket: { server: wss }
-  },
-  (info) => {
-    console.log(`Hono running on http://localhost:${info.port}`)
-  }
-)
+console.log("Server running on port 3003");
