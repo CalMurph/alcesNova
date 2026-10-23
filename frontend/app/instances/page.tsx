@@ -9,6 +9,7 @@ type Instance = {
   hostname: string;
   status: string[];
   uptime: string;
+  user: string
 };
 
 function toSeconds(time: string) {
@@ -17,10 +18,10 @@ function toSeconds(time: string) {
 
 export default function Home() {
   const [instances, setInstances] = useState<Instance[]>([]);
-  const [mode, setMode] = useState<"all-instances" | "my-instances">("my-instances");
-  const [userInstances, setUserInstances] = useState<Instance[]>([])
-
-
+  const [mode, setMode] = useState<"all-instances" | "my-instances">(
+    "my-instances",
+  );
+  const [userInstances, setUserInstances] = useState<Instance[]>([]);
 
   const router = useRouter();
 
@@ -37,7 +38,7 @@ export default function Home() {
       }
     }
 
-     async function getUserInstances() {
+    async function getUserInstances() {
       try {
         const res = await fetch("/api/backend/v1/vviz/user", {
           credentials: "include",
@@ -88,7 +89,6 @@ export default function Home() {
           aria-hidden="true"
           className={`pointer-events-none absolute bottom-0 left-0 h-[2px] w-1/2 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-transform duration-500 ease-out motion-reduce:transition-none ${mode === "all-instances" ? "translate-x-full" : "translate-x-0"}`}
         />
-        
       </div>
 
       {mode === "all-instances" ? (
@@ -110,7 +110,7 @@ export default function Home() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full text-center text-sm">
               <thead className="border-b border-white/10 bg-white/[0.03] text-xs uppercase tracking-wider text-slate-400">
                 <tr>
                   <th className="px-6 py-5 font-medium">ID</th>
@@ -118,6 +118,8 @@ export default function Home() {
                   <th className="px-6 py-5 font-medium">Hostname</th>
                   <th className="px-6 py-5 font-medium">Status</th>
                   <th className="px-6 py-5 font-medium">Uptime</th>
+                  <th className="px-6 py-5 font-medium">User</th>
+
                   <th className="px-6 py-5 text-right font-medium">Details</th>
                 </tr>
               </thead>
@@ -153,6 +155,7 @@ export default function Home() {
                       <td className="px-6 py-5 font-mono text-xs text-slate-400">
                         {instance.id}
                       </td>
+                   
 
                       {/* Flavour */}
                       <td className="px-6 py-5">
@@ -186,9 +189,16 @@ export default function Home() {
                         </span>
                       </td>
 
+                      
+
                       {/* Uptime */}
                       <td className="px-6 py-5 text-slate-300">
                         {instance.uptime || "Pending..."}
+                      </td>
+
+                         {/* ID */}
+                      <td className="px-6 py-5 font-mono text-slate-400">
+                        {instance.user}
                       </td>
 
                       {/* Details */}
@@ -200,7 +210,7 @@ export default function Home() {
                           }
                           className="cursor-pointer rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-slate-300 transition hover:border-purple-400/40 hover:bg-purple-500/10 hover:text-purple-300"
                         >
-                          View →
+                          View
                         </button>
                       </td>
                     </tr>
@@ -208,7 +218,6 @@ export default function Home() {
                 })}
               </tbody>
             </table>
-            
           </div>
 
           {/* Empty state */}
@@ -329,7 +338,11 @@ export default function Home() {
                       </td>
 
                       {/* Uptime */}
-                      <td className="px-6 py-5 text-slate-300">
+                      <td className={
+                            instance.uptime
+                              ? "font-medium text-slate-200"
+                              : "italic text-slate-500"
+                          }>
                         {instance.uptime || "Pending..."}
                       </td>
 
@@ -342,7 +355,7 @@ export default function Home() {
                           }
                           className="cursor-pointer rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-slate-300 transition hover:border-purple-400/40 hover:bg-purple-500/10 hover:text-purple-300"
                         >
-                          View →
+                          View
                         </button>
                       </td>
                     </tr>

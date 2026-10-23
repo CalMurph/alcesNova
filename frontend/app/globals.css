@@ -61,8 +61,31 @@ h1 {
   animation: distant-twinkle 9s ease-in-out infinite;
 }
 
+@keyframes moose-constellation-reveal {
+  from { opacity: calc(var(--moose-star-opacity) * 0.08); }
+  to { opacity: var(--moose-star-opacity); }
+}
+
+@keyframes moose-constellation-glimmer {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.4); }
+}
+
+.moose-constellation-star {
+  opacity: var(--moose-star-opacity);
+  animation: moose-constellation-reveal 2.4s ease-out var(--moose-reveal-delay) both;
+}
+
+.moose-constellation-highlight {
+  animation:
+    moose-constellation-reveal 2.4s ease-out var(--moose-reveal-delay) both,
+    moose-constellation-glimmer 7s ease-in-out var(--moose-glimmer-delay) infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .space-star-twinkle {
+  .space-star-twinkle,
+  .moose-constellation-star,
+  .moose-constellation-highlight {
     animation: none;
   }
 }

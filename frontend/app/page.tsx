@@ -50,9 +50,9 @@ export default function Home() {
         <MooseConstellation />
 
         {/* Main content */}
-        <div className="relative z-10 flex mt-10 translate-y-[clamp(3rem,10vh,6rem)] flex-col items-center">
+        <div className="relative z-10 flex mt-14 translate-y-[clamp(3rem,10vh,6rem)] flex-col items-center">
           <h1
-            className="font-chalet tracking-widest pb-4 text-6xl font-bold leading-normal text-[#F7FAFF] md:text-6xl"
+            className="font-chalet  pb-2 text-6xl font-bold leading-normal text-[#F7FAFF] md:text-6xl"
             style={{ textShadow: "0 2px 18px rgba(4, 7, 19, 0.9)" }}
           >
             AlcesNova
@@ -66,17 +66,17 @@ export default function Home() {
 
             <button
               onClick={handleLogIn}
-              className="mt-10 cursor-pointer font-chalet rounded-full border border-purple-400 bg-white/10 px-8 py-3 font-medium text-white backdrop-blur-md transition hover:bg-white/20"
+              className="mt-10 cursor-pointer rounded-full border border-purple-400 bg-white/10 px-8 py-3 font-bold text-white backdrop-blur-md transition hover:bg-white/20"
             >
               Log In
             </button>
 
-            <Link
+            {/* <Link
               href="/instances"
               className="mt-10 cursor-pointer rounded-full border border-amber-300 bg-amber-400/10 px-8 py-3 font-medium text-white backdrop-blur-md transition hover:bg-white/20"
             >
               Sign Up
-            </Link>
+            </Link> */}
 
           </div>
         </div>

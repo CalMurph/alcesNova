@@ -471,6 +471,7 @@ function handleTerminalConnect() {
                         <VMTerminal
                           socketRef={terminalSocketRef}
                           connection={terminalConnection}
+                          jobID={instance.id}
                         />
                       </div>
                     </div>

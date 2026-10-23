@@ -8,12 +8,12 @@ import { GiStripedSun } from "react-icons/gi";
 
 const navItems = [
    { href: '/create-instance', label: 'Create Instance' },
-   { href: '/instances', label: 'My Instances' },
+   { href: '/instances', label: 'All Instances' },
 ];
 
 function NavLinks({ items, pathname }) {
    return (
-      <nav className="hidden items-center gap-5 lg:flex">
+      <nav className="hidden items-center tracking-wider font-bold gap-5 lg:flex">
          {items.map((item) => {
             const isActive = pathname === item.href ||
                (item.href !== '/' && pathname?.startsWith(`${item.href}/`));
@@ -74,14 +74,14 @@ function HeaderNavigation() {
 export default function Header() {
 
    return (
-      <header className="sticky top-0 z-50 flex h-16 items-center border-b border-white/15 bg-[#060816]/80 px-4 font-sans backdrop-blur-md">
+      <header className="sticky top-0 z-50 flex h-16 items-center border-b border-white/15 bg-[#060816]/80 px-4 font-semibold backdrop-blur-md">
          <div className="w-full ">
             <div className="flex w-full items-center justify-between px-8 lg:px-14 py-4 shadow-xl backdrop-blur-xl">
               
 
                <Link
                   href="/"
-                  className="font-chalet text-2xl transition-opacity hover:opacity-90"
+                  className="font-chalet text-2xl transition-opacity "
                >
                      <svg width="0" height="0" aria-hidden="true">
                   <defs>
@@ -93,9 +93,9 @@ export default function Header() {
                   </defs>
                </svg>
                   <span className="inline-flex items-center gap-1 font-bold">
-                     AlcesNova
+                     <p className='transition-opacity hover:opacity-[0.8]'>AlcesNova</p>
                      <GiStripedSun
-                        className="relative top-[2px]"
+                        
                         style={{ fill: "url(#sun-gradient)" }}
                      />
                   </span>
