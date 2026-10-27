@@ -126,25 +126,25 @@ export default function Home() {
 
               <tbody className="divide-y divide-white/[0.06]">
                 {instances.map((instance) => {
-                  const status = instance.status[0].toLowerCase();
+                  const status = instance.status[instance.status.length - 1].toLowerCase();
 
                   const statusStyle =
-                    status === "running"
+                    status === "ready"
                       ? "border-green-500/20 bg-green-500/10 text-green-400"
                       : status === "pending"
                         ? "border-amber-500/20 bg-amber-500/10 text-amber-400"
-                        : status === "stopped"
-                          ? "border-slate-500/20 bg-slate-500/10 text-slate-400"
+                        : status === "configuring"
+                          ? "border-cyan-500/20 bg-cyan-500/10 text-cyan-400"
                           : "border-cyan-500/20 bg-cyan-500/10 text-cyan-400";
 
                   const dotStyle =
-                    status === "running"
+                    status === "ready"
                       ? "bg-green-400"
                       : status === "pending"
                         ? "bg-amber-400"
-                        : status === "stopped"
-                          ? "bg-slate-400"
-                          : "bg-cyan-400";
+                        : status === "configuring"
+                          ? "bg-cyan-400"
+                          : "bg-slate-400";
 
                   return (
                     <tr
@@ -185,7 +185,7 @@ export default function Home() {
                           <span
                             className={`h-1.5 w-1.5 rounded-full ${dotStyle}`}
                           />
-                          {instance.status[0]}
+                          {instance.status[instance.status.length - 1]}
                         </span>
                       </td>
 
@@ -275,25 +275,25 @@ export default function Home() {
 
               <tbody className="divide-y divide-white/[0.06]">
                 {userInstances.map((instance) => {
-                  const status = instance.status[0].toLowerCase();
+                  const status = instance.status[instance.status.length - 1].toLowerCase();
 
                   const statusStyle =
-                    status === "running"
+                    status === "ready"
                       ? "border-green-500/20 bg-green-500/10 text-green-400"
                       : status === "pending"
                         ? "border-amber-500/20 bg-amber-500/10 text-amber-400"
-                        : status === "stopped"
-                          ? "border-slate-500/20 bg-slate-500/10 text-slate-400"
+                        : status === "configuring"
+                          ? "border-cyan-500/20 bg-cyan-500/10 text-cyan-400"
                           : "border-cyan-500/20 bg-cyan-500/10 text-cyan-400";
 
                   const dotStyle =
-                    status === "running"
+                    status === "ready"
                       ? "bg-green-400"
                       : status === "pending"
                         ? "bg-amber-400"
-                        : status === "stopped"
-                          ? "bg-slate-400"
-                          : "bg-cyan-400";
+                        : status === "configuring"
+                          ? "bg-cyan-400"
+                          : "bg-slate-400";
 
                   return (
                     <tr
@@ -333,7 +333,7 @@ export default function Home() {
                           <span
                             className={`h-1.5 w-1.5 rounded-full ${dotStyle}`}
                           />
-                          {instance.status[0]}
+                          {instance.status[instance.status.length - 1]}
                         </span>
                       </td>
 

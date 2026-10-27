@@ -11,6 +11,7 @@
   --font-chalet: var(--font-chalet-local);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-dune: var(--font-dune-local);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -33,10 +34,6 @@ body {
   50% {
     background-position: 100% 50%;
   }
-}
-
-h1 {
-    font-family: var(--font-chalet), sans-serif;
 }
 
 .animate-gradient {
@@ -82,10 +79,33 @@ h1 {
     moose-constellation-glimmer 7s ease-in-out var(--moose-glimmer-delay) infinite;
 }
 
+@keyframes node-information-fade {
+  0% {
+    opacity: 0;
+  }
+
+  25% {
+    opacity: 1;
+  }
+
+  80% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+.node-information-fade {
+  animation: node-information-fade 12s ease-in-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .space-star-twinkle,
   .moose-constellation-star,
-  .moose-constellation-highlight {
+  .moose-constellation-highlight,
+  .node-information-fade {
     animation: none;
   }
 }

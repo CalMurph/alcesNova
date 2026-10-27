@@ -2,42 +2,26 @@
 
 import Image from "next/image";
 import Marquee from "react-fast-marquee";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { MdLaunch } from "react-icons/md";
+import Link from "next/link";
 
 import SpaceBackground from "./components/SpaceBackground";
 import MooseConstellation from "./components/MooseConstellation";
+import { duneFont } from "./fonts";
 
 const software = [
-  { name: "Python", src: "/images/python.svg" },
-  { name: "R", src: "/images/R.svg" },
-  { name: "Node.js", src: "/images/node.svg" },
-  { name: "PyTorch", src: "/images/pytorch.svg" },
-  { name: "TensorFlow", src: "/images/tensorFlow.svg" },
-  { name: "LaTeX", src: "/images/latex.svg" },
+  { name: "Python", src: "/images/softwareLogos/python.svg" },
+  { name: "R", src: "/images/softwareLogos/r.svg" },
+  { name: "Node.js", src: "/images/softwareLogos/node.svg" },
+  { name: "PyTorch", src: "/images/softwareLogos/pytorch.svg" },
+  { name: "TensorFlow", src: "/images/softwareLogos/tensorFlow.svg" },
+  { name: "LaTeX", src: "/images/softwareLogos/latex.svg" },
 ];
 
 export default function Home() {
-  const router = useRouter();
 
-  async function handleLogIn() {
-    const res = await fetch("/api/backend/v1/users/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        username: "john",
-        password: "moosehead",
-      }),
-    });
 
-    if (!res.ok) {
-      return;
-    }
-
-    router.push("/create-instance");
-  }
 
   return (
     <main className="relative -mx-4 -my-10 min-h-[calc(100dvh-4rem)] overflow-hidden bg-[#060816] sm:-mx-6">
@@ -52,10 +36,10 @@ export default function Home() {
         {/* Main content */}
         <div className="relative z-10 flex mt-14 translate-y-[clamp(3rem,10vh,6rem)] flex-col items-center">
           <h1
-            className="font-chalet  pb-2 text-6xl font-bold leading-normal text-[#F7FAFF] md:text-6xl"
+            className={`${duneFont.className} pb-2 text-3xl font-normal leading-normal text-[#F7FAFF] md:text-5xl`}
             style={{ textShadow: "0 2px 18px rgba(4, 7, 19, 0.9)" }}
           >
-            AlcesNova
+            Alces Nova
           </h1>
 
           <p className="max-w-xl text-2xl text-gray-100">
@@ -64,12 +48,14 @@ export default function Home() {
 
           <div className="flex gap-4">
 
-            <button
-              onClick={handleLogIn}
-              className="mt-10 cursor-pointer rounded-full border border-purple-400 bg-white/10 px-8 py-3 font-bold text-white backdrop-blur-md transition hover:bg-white/20"
+            <Link
+            href="/login"
+            
+              className=" flex items-center gap-2 mt-4 cursor-pointer rounded-full border border-transparent bg-white text-black px-8 py-2 backdrop-blur-md transition font-bold hover:bg-white/20"
             >
-              Log In
-            </button>
+             Launch your computer <MdLaunch />
+             
+            </Link>
 
             {/* <Link
               href="/instances"
@@ -86,7 +72,7 @@ export default function Home() {
 
           <div className="mb-7 text-center">
             <p className="text-xs font-medium uppercase tracking-[0.25em] text-gray-400">
-              Your tools. Already installed.
+              Your tools. Ready to go.
             </p>
           </div>
 

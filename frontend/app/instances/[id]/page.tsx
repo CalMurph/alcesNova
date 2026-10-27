@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { GoInfinity } from "react-icons/go";
 import { FaHourglass } from "react-icons/fa6";
@@ -15,7 +15,6 @@ import {
   FiCpu,
   FiHardDrive,
   FiMonitor,
-  FiPower,
   FiServer,
   FiTerminal,
   FiX,
@@ -27,9 +26,10 @@ type Instance = {
   id: string;
   flavour: string;
   hostname: string;
+  user: string
   status: string[];
-  uptime: string;
-  timeLimit: string
+  uptime: string | null;
+  timeLimit: string | null;
 };
 
 type Flavour = {
@@ -38,14 +38,18 @@ type Flavour = {
   cpus: number;
 };
 
-const fakeData: Instance = {
-  id: "inst-001",
-  flavour: "Ubuntu 22.04",
-  hostname: "web-server-01",
-  status: ["running", "healthy"],
-  uptime: "47:00",
-  timeLimit: "1:00:00",
-};
+type User = {
+    username: string
+}
+
+// const fakeData: Instance = {
+//   id: "inst-001",
+//   flavour: "Ubuntu 22.04",
+//   hostname: "web-server-01",
+//   status: ["running", "healthy"],
+//   uptime: "47:00",
+//   timeLimit: "1:00:00",
+// };
 
 function toSeconds(time: string): number {
   const [days, duration] = time.includes('-')
@@ -60,7 +64,7 @@ function toSeconds(time: string): number {
 }
 
 function formatTime(seconds: number) {
-    
+
   const days = Math.floor(seconds / 86400);
   const hours = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
@@ -82,9 +86,10 @@ export default function InstancePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
 
-  
+
 
   const [instance, setInstance] = useState<Instance | null>(null);
+  const instancePhase = instance?.status[instance.status.length - 1]?.trim().toUpperCase();
 
   const [loading, setLoading] = useState(!USE_MOCK_DATA);
 
@@ -102,17 +107,19 @@ export default function InstancePage() {
 
 const [timeRemaining, setTimeRemaining] = useState(0);
 
-useEffect(() => {
-  if (!instance || !instance.timeLimit) return;
-  
+const [user, setUser] = useState<User | null>(null)
 
- 
+useEffect(() => {
+  if (!instance?.timeLimit || !instance.uptime) return;
+
+
+
      const remaining = Math.max(
     0,
     toSeconds(instance.timeLimit) - toSeconds(instance.uptime)
   );
 
-  
+
 
 
 
@@ -137,6 +144,19 @@ useEffect(() => {
   useEffect(() => {
     if (USE_MOCK_DATA) return;
 
+    async function getUser() {
+        try {
+            const res = await fetch(`/api/backend/v1/users`, {
+            credentials: "include"
+        });
+
+        const data: User = await res.json()
+        setUser(data)
+        } catch(error) {
+            console.log(error)
+        }
+    }
+
     async function getInstance() {
       try {
         const res = await fetch(`/api/backend/v1/vviz/${id}`, {
@@ -158,7 +178,40 @@ useEffect(() => {
     }
 
     void getInstance();
+    void getUser();
   }, [id]);
+
+  useEffect(() => {
+    if (instancePhase !== "PENDING" && instancePhase !== "CONFIGURING") return;
+
+    let cancelled = false;
+    const pollInstance = async () => {
+      try {
+        const res = await fetch(`/api/backend/v1/vviz/${id}`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+
+        const updated: Instance = await res.json();
+        if (cancelled) return;
+
+        setInstance((current) =>
+          current?.status.join("|") === updated.status.join("|")
+            ? current
+            : updated,
+        );
+      } catch (error) {
+        if (!cancelled) console.error("Unable to refresh instance status", error);
+      }
+    };
+
+    const interval = window.setInterval(() => void pollInstance(), 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [id, instancePhase]);
 
   useEffect(() => {
     if (!instance) {
@@ -246,6 +299,7 @@ function handleTerminalConnect() {
 
   const status = instance.status[0].toLowerCase();
   const isRunning = status === "running";
+  const isReady = instancePhase === "READY";
 
   // Replace these placeholders with actual connection data
   // supplied by your API.
@@ -275,37 +329,47 @@ function handleTerminalConnect() {
 
           <div className="flex flex-wrap items-center gap-4">
             <h1 className="font-chalet text-4xl font-semibold text-white md:text-5xl">
-              {instance.hostname || `Vem2-${instance.id}`}
+              {instance.hostname}
             </h1>
+
 
             <span
               className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${
-                isRunning
+                isReady
                   ? "border-green-500/20 bg-green-500/10 text-green-400"
-                  : status === "pending"
+                  : instancePhase === "PENDING"
                     ? "border-amber-500/20 bg-amber-500/10 text-amber-400"
+                    : instancePhase === "CONFIGURING"
+                      ? "border-purple-400/20 bg-purple-500/10 text-purple-300"
                     : "border-slate-500/20 bg-slate-500/10 text-slate-400"
               }`}
             >
               <span
                 className={`h-2 w-2 rounded-full ${
-                  isRunning
+                  isReady
                     ? "bg-green-400"
-                    : status === "pending"
+                    : instancePhase === "PENDING"
                       ? "bg-amber-400"
+                      : instancePhase === "CONFIGURING"
+                        ? "bg-purple-400"
                       : "bg-slate-400"
                 }`}
               />
 
-              {instance.status}
+              {instancePhase ?? "UNKNOWN"}
             </span>
           </div>
 
+             <p className="inline-flex">User: {instance.user}</p>
+              <p >Logged in User: {user?.username}</p>
+
           <p className="mt-4 text-base text-slate-400">
-            {isRunning
+            {isReady
               ? "Your research environment is ready to connect."
-              : status === "pending"
+              : instancePhase === "PENDING"
                 ? "Your virtual computer is being prepared."
+                : instancePhase === "CONFIGURING"
+                  ? "Your virtual computer is being configured."
                 : "Your virtual computer is not currently running."}
           </p>
         </section>
@@ -341,10 +405,10 @@ function handleTerminalConnect() {
               </>
             )}
 
-        
 
-            
-            
+
+
+
             {instance  && instance.uptime && (
                   <ResourceCard
               icon={<FaHourglass />}
@@ -361,16 +425,18 @@ function handleTerminalConnect() {
               value={instance.uptime}
             />
 
-            
+
 
 
 
           </div>
         </section>
 
-        {/* Connection workspace */}
-        <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#101321]/90 shadow-2xl shadow-purple-950/10 backdrop-blur-md">
-          {/* Connection heading */}
+        {user?.username === instance.user && isReady && (
+
+                    <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#101321]/90 shadow-2xl shadow-purple-950/10 backdrop-blur-md">
+
+
           <div className="border-b border-white/10 px-6 py-6 sm:px-8">
             <h2 className="font-chalet text-2xl font-semibold">
               Connect to your workspace
@@ -382,7 +448,8 @@ function handleTerminalConnect() {
           </div>
 
           <div className="p-5 sm:p-8">
-            {/* Connection selection */}
+
+
             <div className="grid gap-4 md:grid-cols-3">
               <ConnectionCard
                 title="Web Terminal"
@@ -412,9 +479,9 @@ function handleTerminalConnect() {
               />
             </div>
 
-            {/* Connection content */}
+
             <div className="mt-8">
-              {/* Web Terminal */}
+
               {selectedConnection === "web-terminal" && (
                 <div className="rounded-xl border border-white/10 bg-[#0B0E1A] p-5 sm:p-7">
                   <div className="mb-6 flex items-center gap-3">
@@ -430,11 +497,11 @@ function handleTerminalConnect() {
                   </div>
 
                   {!terminalConnection ? (
-                   
-                     
 
-                     
-                     
+
+
+
+
 
                       <button
                         onClick={handleTerminalConnect}
@@ -445,7 +512,7 @@ function handleTerminalConnect() {
                         Connect to Computer
                         <FiArrowRight />
                       </button>
-                  
+
                   ) : (
                     <div className="overflow-hidden rounded-xl border border-white/10 bg-black">
                       <div className="flex items-center justify-between border-b border-white/10 bg-[#111421] px-4 py-3">
@@ -476,11 +543,12 @@ function handleTerminalConnect() {
                       </div>
                     </div>
                   )}
-                   
+
                 </div>
               )}
 
-              {/* Visual Studio Code */}
+
+
               {selectedConnection === "vscode" && (
                 <div className="rounded-xl border border-white/10 bg-[#0B0E1A] p-5 sm:p-7">
                   <div className="mb-6 flex items-center gap-3">
@@ -560,7 +628,8 @@ function handleTerminalConnect() {
                 </div>
               )}
 
-              {/* Manual SSH */}
+
+
               {selectedConnection === "manual-ssh" && (
                 <div className="rounded-xl border border-white/10 bg-[#0B0E1A] p-5 sm:p-7">
                   <div className="mb-6 flex items-center gap-3">
@@ -613,8 +682,142 @@ function handleTerminalConnect() {
             </div>
           </div>
         </section>
+
+        )}
+
+        {(instancePhase === "PENDING" || instancePhase === "CONFIGURING") && (
+          <ProvisioningStatus phase={instancePhase} />
+        )}
+
+        {/* Connection workspace */}
+
       </div>
     </main>
+  );
+}
+
+function ProvisioningStatus({ phase }: { phase: "PENDING" | "CONFIGURING" }) {
+  const isPending = phase === "PENDING";
+  const stages = ["Nebula", "Protostar", "Ready"];
+  const stars = [
+    { left: "8%", top: "18%", size: 2, opacity: 0.5 },
+    { left: "14%", top: "68%", size: 1, opacity: 0.4 },
+    { left: "21%", top: "38%", size: 2, opacity: 0.55 },
+    { left: "27%", top: "12%", size: 1, opacity: 0.45 },
+    { left: "33%", top: "82%", size: 2, opacity: 0.35 },
+    { left: "69%", top: "15%", size: 1, opacity: 0.5 },
+    { left: "77%", top: "70%", size: 2, opacity: 0.45 },
+    { left: "84%", top: "30%", size: 1, opacity: 0.55 },
+    { left: "91%", top: "60%", size: 2, opacity: 0.5 },
+    { left: "95%", top: "14%", size: 1, opacity: 0.4 },
+  ];
+
+  return (
+    <section
+      aria-live="polite"
+      className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#090d1c] px-6 py-10 text-center shadow-2xl shadow-purple-950/10 sm:px-10 sm:py-12"
+    >
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        {isPending ? (
+          <>
+            <span className="absolute -left-20 top-0 h-64 w-80 rotate-12 rounded-full bg-violet-500/15 blur-3xl" />
+            <span className="absolute -right-16 top-8 h-64 w-80 -rotate-12 rounded-full bg-sky-500/10 blur-3xl" />
+            <span className="absolute left-1/3 -top-20 h-56 w-72 rounded-full bg-fuchsia-500/10 blur-3xl" />
+          </>
+        ) : (
+          <>
+            <span className="absolute left-1/2 top-0 h-64 w-80 -translate-x-1/2 rounded-full bg-fuchsia-500/15 blur-3xl" />
+            <span className="absolute -left-16 bottom-0 h-52 w-72 rounded-full bg-purple-500/10 blur-3xl" />
+            <span className="absolute -right-16 bottom-0 h-52 w-72 rounded-full bg-pink-500/10 blur-3xl" />
+          </>
+        )}
+        {stars.map((star, index) => (
+          <span
+            key={index}
+            className="absolute rounded-full bg-white"
+            style={{
+              left: star.left,
+              top: star.top,
+              width: star.size,
+              height: star.size,
+              opacity: star.opacity,
+              boxShadow: "0 0 8px rgba(255,255,255,0.55)",
+            }}
+          />
+        ))}
+      </div>
+
+      <div className="relative z-10 mx-auto flex max-w-2xl flex-col items-center">
+        {isPending ? (
+          <div aria-hidden="true" className="relative mb-6 h-24 w-36">
+            <span className="absolute left-2 top-7 h-12 w-20 rounded-full bg-violet-400/40 blur-xl" />
+            <span className="absolute right-3 top-3 h-16 w-16 rounded-full bg-sky-400/30 blur-xl" />
+            <span className="absolute left-10 top-5 h-14 w-20 rounded-full bg-fuchsia-400/25 blur-xl" />
+            <span className="absolute left-10 top-9 h-1 w-1 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)]" />
+            <span className="absolute right-10 top-5 h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.9)]" />
+            <span className="absolute bottom-5 right-14 h-1 w-1 rounded-full bg-purple-100 shadow-[0_0_10px_rgba(216,180,254,0.8)]" />
+          </div>
+        ) : (
+          <div aria-hidden="true" className="relative mb-6 grid h-24 w-24 place-items-center">
+            <span className="absolute inset-0 rounded-full border border-pink-200/10" />
+            <span className="absolute inset-3 rounded-full border border-fuchsia-200/20" />
+            <span className="absolute h-14 w-14 rounded-full bg-fuchsia-500/35 blur-xl" />
+            <span
+              className="relative h-8 w-8 rounded-full"
+              style={{
+                background: "radial-gradient(circle at 35% 30%, #fff7ed 0%, #f9a8d4 26%, #c084fc 58%, #7c3aed 100%)",
+                boxShadow: "0 0 20px rgba(244,114,182,0.65), 0 0 54px rgba(168,85,247,0.35)",
+              }}
+            />
+          </div>
+        )}
+
+        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-purple-200">
+          {isPending ? "Nebula · Pending" : "Protostar · Configuring"}
+        </p>
+        <h2 className="font-chalet mt-3 text-2xl font-semibold text-white sm:text-3xl">
+          {isPending ? "A nebula is gathering" : "Your protostar is taking shape"}
+        </h2>
+        <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300">
+          {isPending
+            ? "Your instance is queued. Its workspace will begin forming when resources become available."
+            : "The operating system and tools are being prepared. Your workspace will be ready to connect soon."}
+        </p>
+      </div>
+
+      <ol className="relative z-10 mx-auto mt-8 grid max-w-xl grid-cols-3 gap-2 border-t border-white/10 pt-5">
+        {stages.map((stage, index) => {
+          const isActive = index === (isPending ? 0 : 1);
+          const isComplete = !isPending && index === 0;
+
+          return (
+            <li
+              key={stage}
+              aria-current={isActive ? "step" : undefined}
+              className={`flex flex-col items-center gap-2 text-xs font-medium sm:text-sm ${
+                isActive
+                  ? "text-purple-200"
+                  : isComplete
+                    ? "text-slate-300"
+                    : "text-slate-500"
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className={`h-2 w-2 shrink-0 rounded-full ${
+                  isActive
+                    ? "bg-purple-300 shadow-[0_0_12px_rgba(192,132,252,0.8)]"
+                    : isComplete
+                      ? "bg-purple-400/60"
+                      : "bg-slate-600"
+                }`}
+              />
+              {stage}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 

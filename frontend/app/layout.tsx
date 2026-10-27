@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from './components/Header';
 import localFont from "next/font/local";
+import { duneFont } from "./fonts";
 
 const chalet = localFont({
   src: "../public/fonts/Chalet1960.otf",
@@ -30,7 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${chalet.variable}  ${geistMono.variable} antialiased`}
+      className={`${geistSans.variable} ${chalet.variable} ${duneFont.variable} ${geistMono.variable} antialiased`}
     >
       <body className="h-full text-white flex flex-col">
         <div className="fixed inset-0 -z-10 " />
