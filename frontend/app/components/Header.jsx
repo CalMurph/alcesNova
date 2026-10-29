@@ -80,7 +80,7 @@ export default function Header() {
             <div className="flex w-full items-center justify-between px-6 lg:px-14">
                <Link
                   href="/"
-                  className={`group inline-flex items-center gap-2 ${duneFont.className} text-lg font-normal text-white`}
+                  className={`group inline-flex items-center gap-2 ${duneFont.className} text-lg  text-white`}
                >
                   <svg
                      width="0"
