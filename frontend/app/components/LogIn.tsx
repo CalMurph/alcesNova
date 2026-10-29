@@ -1,9 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import DonutChart from "./DonutChart";
-import Link from "next/link";
-import { FiArrowUpRight, FiPlus } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 
 export default function LogIn() {
@@ -19,6 +15,7 @@ export default function LogIn() {
 
     const res = await fetch("/api/backend/v1/users/login", {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
       },
@@ -33,7 +30,7 @@ export default function LogIn() {
       return;
     }
 
-    router.push("/home");
+    router.replace("/home");
   }
 
   return (

@@ -32,7 +32,6 @@ export default function UserHomePage() {
   const [flavours, setFlavours] = useState<Flavour[] | null>(null);
   const [instancesError, setInstancesError] = useState(false);
   const [flavoursError, setFlavoursError] = useState(false);
-  const [arrived, setArrived] = useState(false)
 
   useEffect(() => {
     async function getClusterData() {
@@ -100,20 +99,28 @@ export default function UserHomePage() {
   const runningInstances = userInstances?.filter(
     (instance) => instance.status?.[0]?.trim().toLowerCase() === "running",
   );
-  const instanceResources = runningInstances?.reduce<{
-    cpus: number;
-    memoryGb: number;
-  } | null>((totals, instance) => {
-    const flavour = flavours?.find((item) => item.name === instance.flavour);
-    if (!totals || !flavour) return null;
+  const instanceResources =
+    runningInstances?.reduce<{
+      cpus: number;
+      memoryGb: number;
+    } | null>(
+      (totals, instance) => {
+        const flavour = flavours?.find(
+          (item) => item.name === instance.flavour,
+        );
+        if (!totals || !flavour) return null;
 
-    return {
-      cpus: totals.cpus + flavour.cpus,
-      memoryGb: totals.memoryGb + flavour.memoryGb,
-    };
-  }, { cpus: 0, memoryGb: 0 }) ?? null;
+        return {
+          cpus: totals.cpus + flavour.cpus,
+          memoryGb: totals.memoryGb + flavour.memoryGb,
+        };
+      },
+      { cpus: 0, memoryGb: 0 },
+    ) ?? null;
   const resourceFallback =
-    instancesError || flavoursError || (userInstances !== null && flavours !== null)
+    instancesError ||
+    flavoursError ||
+    (userInstances !== null && flavours !== null)
       ? "—"
       : "Loading…";
 
@@ -129,15 +136,15 @@ export default function UserHomePage() {
 
   return (
     <main className="min-h-screen px-4 py-8 sm:px-8">
-      <div className="w-full">
-     
-
-        <h1 className="font-chalet w-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-3xl font-semibold leading-normal text-transparent">
+      <div className="w-full mx-auto max-w-[90rem]">
+         <h1 className="font-chalet w-full mx-auto ml-5 text-5xl max-w-[90rem] font-semibold leading-normal text-white">
           Overview
         </h1>
-      </div>
+      
+   
 
       <div className="mx-auto mt-10 grid w-full max-w-[90rem] gap-6 xl:grid-cols-[minmax(0,1.8fr)_minmax(20rem,0.9fr)]">
+         
         <section className="min-w-0 rounded-3xl border border-slate-800 bg-slate-900/70 p-5 shadow-xl shadow-black/20 sm:p-8">
           <div className="flex items-center justify-between gap-4">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-300">
@@ -190,7 +197,8 @@ export default function UserHomePage() {
                 Running instances
               </p>
               <p className="mt-3 text-4xl font-semibold tabular-nums text-white">
-                {runningInstances?.length ?? (instancesError ? "—" : "Loading…")}
+                {runningInstances?.length ??
+                  (instancesError ? "—" : "Loading…")}
               </p>
             </div>
             <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
@@ -230,6 +238,7 @@ export default function UserHomePage() {
             </Link>
           </div>
         </section>
+      </div>
       </div>
     </main>
   );

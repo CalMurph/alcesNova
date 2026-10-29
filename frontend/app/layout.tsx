@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Header from './components/Header';
+import Header from "./components/Header";
 import localFont from "next/font/local";
 import { duneFont } from "./fonts";
+import { Suspense } from "react";
 
 const chalet = localFont({
   src: "../public/fonts/Chalet1960.otf",
@@ -14,8 +15,6 @@ const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
 });
-
-
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -36,7 +35,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="h-full text-white flex flex-col">
         <div className="fixed inset-0 -z-10 " />
 
-        <Header />
+        <Suspense fallback={null}>
+          <Header />
+        </Suspense>
 
         <main className="flex-1 flex justify-center px-4 py-10 sm:px-6 bg-[#060816]">
           <div className=" mx-auto w-full">{children}</div>

@@ -188,7 +188,7 @@ const launchSteps = [
     title: "Operating system (OS)",
     detail: "Choose your operating system",
   },
-  { number: 3, title: "Software packages", detail: "Choose your tools" },
+  { number: 3, title: "Software packages", detail: "Choose your tools (Optional)" },
   { number: 4, title: "Time", detail: "Choose how long you want" },
 ] as const;
 
@@ -417,7 +417,7 @@ export default function Home() {
             >
               <button
                 type="button"
-                disabled={isCreating}
+                disabled={isCreating || !selectedFlavour}
                 onClick={() => goToStep(step.number)}
                 className="flex items-center gap-2 rounded-lg text-left cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-purple-400 disabled:cursor-default sm:gap-3"
               >
@@ -848,36 +848,7 @@ export default function Home() {
               </div>
 
               <div className="mt-4 flex justify-end gap-2">
-                <button
-                  type="button"
-                  disabled={selectedTimeLimitSeconds === minTimeLimitSeconds}
-                  onClick={() =>
-                    setSelectedTimeLimitSeconds((seconds) =>
-                      Math.max(
-                        minTimeLimitSeconds,
-                        seconds - timeLimitStepSeconds,
-                      ),
-                    )
-                  }
-                  className="cursor-pointer rounded-full border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:border-purple-400/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  − 30 min
-                </button>
-                <button
-                  type="button"
-                  disabled={selectedTimeLimitSeconds === maxTimeLimitSeconds}
-                  onClick={() =>
-                    setSelectedTimeLimitSeconds((seconds) =>
-                      Math.min(
-                        maxTimeLimitSeconds,
-                        seconds + timeLimitStepSeconds,
-                      ),
-                    )
-                  }
-                  className="cursor-pointer rounded-full border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:border-purple-400/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  + 30 min
-                </button>
+              
               </div>
               {timeMessage && (
                 <p className="mt-6 border p-4 text-lg rounded-lg bg-purple-600/10 border-purple-600 font-bold">{timeMessage}</p>

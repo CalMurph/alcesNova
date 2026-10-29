@@ -1,0 +1,781 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { GoInfinity } from "react-icons/go";
+import { FaHourglass } from "react-icons/fa6";
+import { UserRound } from "lucide-react";
+import { Server, LoaderCircle } from "lucide-react";
+
+import { FaChevronLeft } from "react-icons/fa6";
+import Image from "next/image";
+import {
+  FiArrowRight,
+  FiCheckCircle,
+  FiClock,
+  FiCode,
+  FiCopy,
+  FiCpu,
+  FiHardDrive,
+  FiMonitor,
+  FiServer,
+  FiTerminal,
+  FiX,
+} from "react-icons/fi";
+
+import VMTerminal, { type TerminalConnection } from "./Terminal";
+
+type Instance = {
+  id: string;
+  flavour: string;
+  hostname: string;
+  user: string;
+  status: string[];
+  uptime: string | null;
+  timeLimit: string | null;
+  connectable: boolean;
+};
+
+type Flavour = {
+  name: string;
+  memoryGb: number;
+  cpus: number;
+};
+
+type User = {
+  username: string;
+};
+
+function toSeconds(time: string): number {
+  const [days, duration] = time.includes("-") ? time.split("-") : ["0", time];
+
+  const seconds = duration
+    .split(":")
+    .reduce((acc, val) => acc * 60 + Number(val), 0);
+
+  return Number(days) * 86400 + seconds;
+}
+
+function formatTime(seconds: number) {
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
+  const time = [hours, minutes, secs]
+    .map((value) => String(value).padStart(2, "0"))
+    .join(":");
+
+  return days > 0 ? `${days} days ${hours} hours` : time;
+}
+
+type ConnectionMethod = "web-terminal" | "vscode" | "manual-ssh";
+
+export default function InstancePage() {
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+
+  const [instance, setInstance] = useState<Instance | null>(null);
+  const instancePhase = instance?.status[instance.status.length - 1]
+    ?.trim()
+    .toUpperCase();
+
+  const [loading, setLoading] = useState(true);
+
+  const [selectedConnection, setSelectedConnection] =
+    useState<ConnectionMethod>("web-terminal");
+
+  const [terminalConnection, setTerminalConnection] =
+    useState<TerminalConnection | null>(null);
+
+  const [copied, setCopied] = useState(false);
+  const [flavour, setFlavour] = useState<Flavour | null>(null);
+
+  const terminalSocketRef = useRef<WebSocket | null>(null);
+
+  const [timeRemaining, setTimeRemaining] = useState(0);
+
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    if (!instance?.timeLimit || !instance.uptime) return;
+
+    const remaining = Math.max(
+      0,
+      toSeconds(instance.timeLimit) - toSeconds(instance.uptime),
+    );
+
+    const endTime = Date.now() + remaining * 1000;
+
+    const updateRemaining = () => {
+      setTimeRemaining(Math.max(0, Math.ceil((endTime - Date.now()) / 1000)));
+    };
+
+    updateRemaining();
+
+    const interval = setInterval(updateRemaining, 1000);
+
+    return () => clearInterval(interval);
+  }, [instance]);
+
+  // Fetch instance information
+  useEffect(() => {
+    async function getUser() {
+      try {
+        const res = await fetch(`/api/backend/v1/users`, {
+          credentials: "include",
+        });
+
+        const data: User = await res.json();
+        setUser(data);
+      } catch (error) {
+        console.log(error);
+      }
+    }
+
+    async function getInstance() {
+      try {
+        const res = await fetch(`/api/backend/v1/vviz/${id}`, {
+          credentials: "include",
+        });
+
+        if (!res.ok) {
+          throw new Error("Unable to fetch instance");
+        }
+
+        const data: Instance = await res.json();
+        setInstance(data);
+      } catch (error) {
+        console.error(error);
+        setInstance(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void getInstance();
+    void getUser();
+  }, [id]);
+
+  useEffect(() => {
+    if (instancePhase !== "PENDING" && instancePhase !== "CONFIGURING") return;
+
+    let cancelled = false;
+    const pollInstance = async () => {
+      try {
+        const res = await fetch(`/api/backend/v1/vviz/${id}`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+
+        const updated: Instance = await res.json();
+        if (cancelled) return;
+
+        setInstance((current) =>
+          current?.status.join("|") === updated.status.join("|")
+            ? current
+            : updated,
+        );
+      } catch (error) {
+        if (!cancelled)
+          console.error("Unable to refresh instance status", error);
+      }
+    };
+
+    const interval = window.setInterval(() => void pollInstance(), 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [id, instancePhase]);
+
+  useEffect(() => {
+    if (!instance) {
+      return;
+    }
+
+    async function getFlavour() {
+      const res = await fetch(`/api/backend/v1/flavours/${instance?.flavour}`, {
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        throw new Error("Unable to fetch flavour");
+      }
+
+      const data: Flavour = await res.json();
+      setFlavour(data);
+    }
+    getFlavour();
+  }, [instance]);
+
+  function handleTerminalConnect() {
+    setTerminalConnection({
+      type: "connect",
+    });
+  }
+
+  function handleTerminalDisconnect() {
+    const socket = terminalSocketRef.current;
+
+    if (socket && socket.readyState < WebSocket.CLOSING) {
+      socket.close(1000, "Disconnected by user");
+    }
+
+    setTerminalConnection(null);
+  }
+
+  function changeConnection(method: ConnectionMethod) {
+    if (method !== "web-terminal") {
+      handleTerminalDisconnect();
+    }
+
+    setSelectedConnection(method);
+  }
+
+  async function copyCommand(command: string) {
+    try {
+      await navigator.clipboard.writeText(command);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error("Could not copy command", error);
+    }
+  }
+
+  if (loading) {
+    return (
+      <main className="flex min-h-[70vh] items-center justify-center text-slate-400">
+        Loading your workspace...
+      </main>
+    );
+  }
+
+  if (!instance) {
+    return (
+      <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center gap-4">
+        <h1 className="text-2xl text-white">Instance not found</h1>
+
+        <button
+          onClick={() => router.push("/instances")}
+          className="cursor-pointer text-purple-300 hover:text-purple-200"
+        >
+          Return to instances
+        </button>
+      </main>
+    );
+  }
+
+  const status = instance.status[0].toLowerCase();
+  const isRunning = status === "running";
+  const isReady = instancePhase === "READY";
+
+  // Replace these placeholders with actual connection data
+  // supplied by your API.
+  const sshHost = "clusterIP";
+  const sshUser = "cluster";
+
+  const sshCommand = `ssh -i /path/to/sshKey ${sshUser}@${sshHost}`;
+
+  return (
+    <main className="min-h-[calc(100dvh-4rem)] bg-[#060816] px-4 py-8 text-white sm:px-8">
+      <div className="mx-auto w-full max-w-6xl">
+        {/* Breadcrumb */}
+        <button
+          type="button"
+          onClick={() => router.push("/instances")}
+          className="mb-10 flex cursor-pointer items-center gap-2 text-lg text-slate-400 transition hover:text-purple-300"
+        >
+          <FaChevronLeft />
+          Instances
+        </button>
+
+        {/* Instance header */}
+        <section className="mb-10">
+          <p className="mb-3 w-fit bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-xs font-semibold uppercase tracking-[0.25em] text-transparent">
+            Virtual Computer
+          </p>
+
+          <div className="flex flex-wrap items-center gap-4">
+            <h1
+              className={`font-chalet text-4xl font-semibold ${instance.hostname ? "text-white" : "text-slate-500"} md:text-5xl`}
+            >
+              {instance.hostname || "[Hostname Pending]"}
+            </h1>
+
+            <span
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${
+                isReady
+                  ? "border-green-500/20 bg-green-500/10 text-green-400"
+                  : instancePhase === "PENDING"
+                    ? "border-amber-500/20 bg-amber-500/10 text-amber-400"
+                    : instancePhase === "CONFIGURING"
+                      ? "border-purple-400/20 bg-purple-500/10 text-purple-300"
+                      : "border-slate-500/20 bg-slate-500/10 text-slate-400"
+              }`}
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  isReady
+                    ? "bg-green-400"
+                    : instancePhase === "PENDING"
+                      ? "bg-amber-400"
+                      : instancePhase === "CONFIGURING"
+                        ? "bg-purple-400"
+                        : "bg-slate-400"
+                }`}
+              />
+
+              {instancePhase ?? "UNKNOWN"}
+            </span>
+          </div>
+
+          <div className="mt-3 inline-flex w-fit items-center gap-3 rounded-lg border border-slate-700/60 bg-slate-800/50 px-4 py-2.5">
+            <UserRound size={17} className="text-slate-400" />
+            <span className="text-md text-slate-400 font-bold">User</span>
+            <span className="text-md font-medium text-slate-100">
+              {instance.user}
+            </span>
+          </div>
+
+          {instance.user === user?.username && (
+            <p className="mt-4 text-base text-slate-400">
+              {isReady
+                ? "Your research environment is ready to connect."
+                : instancePhase === "PENDING"
+                  ? "Your virtual computer is being prepared."
+                  : instancePhase === "CONFIGURING"
+                    ? "Your virtual computer is being configured."
+                    : "Your virtual computer is not currently running."}
+            </p>
+          )}
+        </section>
+
+        {/* Resource overview */}
+        <section className="mb-10">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <ResourceCard
+              icon={<FiServer />}
+              label="FLAVOUR"
+              value={instance.flavour}
+            />
+
+            {flavour && (
+              <>
+                <ResourceCard
+                  icon={<FiCpu />}
+                  label="COMPUTE"
+                  value={
+                    flavour.cpus !== undefined ? `${flavour.cpus} vCPUs` : "—"
+                  }
+                />
+
+                <ResourceCard
+                  icon={<FiHardDrive />}
+                  label="MEMORY"
+                  value={
+                    flavour.memoryGb !== undefined
+                      ? `${flavour.memoryGb} GB`
+                      : "—"
+                  }
+                />
+              </>
+            )}
+
+            {instance && instance.uptime && (
+              <ResourceCard
+                icon={<FaHourglass />}
+                label="TIME REMAINING"
+                value={
+                  instance.timeLimit ? (
+                    formatTime(timeRemaining)
+                  ) : (
+                    <GoInfinity className="text-gray-200 mx-auto" size={35} />
+                  )
+                }
+              />
+            )}
+
+            <ResourceCard
+              icon={<FiClock />}
+              label="UPTIME"
+              value={instance.uptime}
+            />
+          </div>
+        </section>
+
+        {user?.username === instance.user && instance.connectable && (
+          <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#101321]/90 shadow-2xl shadow-purple-950/10 backdrop-blur-md">
+            <div className="border-b border-white/10 px-6 py-6 sm:px-8">
+              <h2 className="font-chalet text-2xl font-semibold">
+                Connect to your workspace
+              </h2>
+
+              <p className="mt-2 text-sm text-slate-400">
+                Choose how you&apos;d like to access your virtual computer.
+              </p>
+            </div>
+
+            <div className="p-5 sm:p-8">
+              <div className="grid gap-4 md:grid-cols-3">
+                <ConnectionCard
+                  title="Web Terminal"
+                  description="Access your computer directly in the browser."
+                  icon={<FiTerminal />}
+                  selected={selectedConnection === "web-terminal"}
+                  onClick={() => changeConnection("web-terminal")}
+                />
+
+                <ConnectionCard
+                  title="Visual Studio Code"
+                  titleIcon={
+                    <Image src="/vsCode.svg" alt="" width={20} height={20} />
+                  }
+                  description="Develop and edit files using VS Code."
+                  icon={<FiCode />}
+                  selected={selectedConnection === "vscode"}
+                  onClick={() => changeConnection("vscode")}
+                />
+
+                <ConnectionCard
+                  title="Manual SSH"
+                  description="Connect using your own terminal."
+                  icon={<FiMonitor />}
+                  selected={selectedConnection === "manual-ssh"}
+                  onClick={() => changeConnection("manual-ssh")}
+                />
+              </div>
+
+              {/* TERMINAL CONNECTION */}
+              <div className="mt-8">
+                {selectedConnection === "web-terminal" && (
+                  <div className="rounded-xl border border-white/10 bg-[#0B0E1A] p-5 sm:p-7">
+                    <div className="mb-6 flex items-center gap-3">
+                      <FiTerminal className="text-xl text-purple-300" />
+
+                      <div>
+                        <h3 className="font-semibold text-white">
+                          Web Terminal
+                        </h3>
+
+                        <p className="mt-1 text-sm text-slate-400">
+                          Connect directly from your browser.
+                        </p>
+                      </div>
+                    </div>
+
+                    {!terminalConnection ? (
+                      <button
+                        onClick={handleTerminalConnect}
+                        disabled={!isRunning}
+                        className="flex cursor-pointer items-center gap-3 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 px-7 py-3 font-medium text-white transition hover:from-blue-500 hover:to-purple-500 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <FiTerminal />
+                        Connect to Computer
+                        <FiArrowRight />
+                      </button>
+                    ) : (
+                      <div className="overflow-hidden rounded-xl border border-white/10 bg-black">
+                        <div className="flex items-center justify-between border-b border-white/10 bg-[#111421] px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <FiTerminal className="text-purple-300" />
+
+                            <span className="text-sm font-medium text-slate-300">
+                              {instance.hostname}
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={handleTerminalDisconnect}
+                            className="flex cursor-pointer items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300 transition hover:bg-red-500/20"
+                          >
+                            <FiX />
+                            Disconnect
+                          </button>
+                        </div>
+
+                        <div className="p-3">
+                          <VMTerminal
+                            socketRef={terminalSocketRef}
+                            connection={terminalConnection}
+                            jobID={instance.id}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {selectedConnection === "vscode" && (
+                  <div className="rounded-xl border border-white/10 bg-[#0B0E1A] p-5 sm:p-7">
+                    <div className="mb-6 flex items-center gap-3">
+                      <Image
+                        src="/vsCode.svg"
+                        alt="VS Code"
+                        width={32}
+                        height={32}
+                      />
+
+                      <div>
+                        <h3 className="font-semibold text-white">
+                          Connect with VS Code
+                        </h3>
+
+                        <p className="mt-1 text-sm text-slate-400">
+                          Work on your virtual computer from your editor.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-5 text-md tracking-wider text-slate-300">
+                      <p>
+                        Note: If this is your first connection, you must connect
+                        via web terminal or manual ssh.
+                      </p>
+
+                      <ol className="list-decimal space-y-4 pl-5">
+                        <li>
+                          Install{" "}
+                          <a
+                            href="https://code.visualstudio.com/download"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-purple-300 underline underline-offset-4 hover:text-purple-200"
+                          >
+                            Visual Studio Code
+                          </a>
+                          .
+                        </li>
+
+                        <li>
+                          Install the Microsoft <strong>Remote - SSH</strong>{" "}
+                          extension.
+                        </li>
+
+                        <li>
+                          Open the Command Palette and select{" "}
+                          <strong>Remote-SSH: Add New SSH Host...</strong>
+                        </li>
+
+                        <li>
+                          Enter your SSH connection command and save it to your
+                          SSH configuration.
+                        </li>
+
+                        <li>
+                          Select <strong>Remote-SSH: Connect to Host...</strong>{" "}
+                          and choose the configured host.
+                        </li>
+                      </ol>
+
+                      <div className="rounded-lg border border-white/10 bg-black p-4">
+                        <code className="break-all font-mono text-sm text-purple-300">
+                          {sshCommand}
+                        </code>
+                      </div>
+
+                      <a
+                        href="vscode://"
+                        className="inline-flex items-center gap-2 rounded-full border border-purple-400/30 bg-purple-500/10 px-5 py-2.5 font-medium text-purple-200 transition hover:bg-purple-500/20"
+                      >
+                        <FiCode />
+                        Open VS Code
+                        <FiArrowRight />
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {selectedConnection === "manual-ssh" && (
+                  <div className="rounded-xl border border-white/10 bg-[#0B0E1A] p-5 sm:p-7">
+                    <div className="mb-6 flex items-center gap-3">
+                      <FiMonitor className="text-2xl text-purple-300" />
+
+                      <div>
+                        <h3 className="font-semibold text-white">
+                          Manual SSH Connection
+                        </h3>
+
+                        <p className="mt-1 text-sm text-slate-400">
+                          Connect from your local terminal.
+                        </p>
+                      </div>
+                    </div>
+
+                    <p className="mb-5 max-w-2xl text-md tracking-wider leading-relaxed text-slate-300">
+                      Open a terminal on your computer and run the following
+                      command, replacing the SSH key path and host with your
+                      connection details.
+                    </p>
+
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black p-4">
+                      <code className="overflow-x-auto font-mono text-sm text-purple-300">
+                        {sshCommand}
+                      </code>
+
+                      <button
+                        type="button"
+                        onClick={() => void copyCommand(sshCommand)}
+                        aria-label="Copy SSH command"
+                        className="cursor-pointer text-slate-400 transition hover:text-white"
+                      >
+                        {copied ? <FiCheckCircle /> : <FiCopy />}
+                      </button>
+                    </div>
+
+                    <p className="mt-5 text-md tracking-wider text-slate-400">
+                      If your SSH configuration already includes the host and
+                      authentication key, you can connect using the host alias.
+                    </p>
+
+                    <div className="mt-4 rounded-xl border border-white/10 bg-black p-4">
+                      <code className="font-mono text-sm text-purple-300">
+                        ssh cluster@clusterIP
+                      </code>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {user?.username === instance.user &&
+          !instance.connectable &&
+          (instancePhase === "PENDING" || instancePhase === "CONFIGURING") && (
+            <div className="flex w-full justify-center rounded-xl border border-purple-400/40 bg-purple-900/5 p-8">
+              <div className="flex max-w-2xl flex-col items-center text-center">
+                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-purple-400/20 bg-purple-500/10">
+                  <Server
+                    className="h-8 w-8 text-purple-400"
+                    strokeWidth={1.5}
+                  />
+                </div>
+
+                <h2 className="text-4xl font-semibold tracking-tight">
+                  {instancePhase === "CONFIGURING"
+                    ? "Making your instance yours"
+                    : "Your instance is coming to life"}
+                </h2>
+
+                <p className="mt-4 max-w-xl text-lg leading-relaxed text-slate-400">
+                  {instancePhase === "CONFIGURING"
+                    ? "We're applying your software and settings. You'll be able to connect as soon as everything is ready."
+                    : "We're getting everything ready for you. You'll be able to connect once your instance is up and running."}
+                </p>
+
+                <div className="mt-6 flex items-center gap-2 rounded-full border border-purple-400/20 bg-purple-500/10 px-4 py-2">
+                  <LoaderCircle className="h-4 w-4 animate-spin text-purple-400" />
+                  <span className="text-sm font-medium text-purple-300">
+                    {instancePhase === "CONFIGURING"
+                      ? "Configuring your instance"
+                      : "Preparing your instance"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+        {!(user?.username === instance.user) && (
+          <div className="flex w-full justify-center">
+            <div className="max-w-2xl text-center">
+              <button
+                onClick={() => router.push("/instances")}
+                className="cursor-pointer text-purple-300 text-2xl hover:text-purple-200"
+              >
+                Return to instances
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Connection workspace */}
+      </div>
+    </main>
+  );
+}
+
+// Resource information card
+function ResourceCard({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number | React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-[#141827]/90 p-5 transition-colors hover:border-purple-400/20">
+      <div className="mb-4 flex items-center gap-2 text-purple-300">
+        {icon}
+
+        <span className="text-xs font-medium uppercase tracking-wider text-slate-400">
+          {label}
+        </span>
+      </div>
+
+      <span className="text-xl font-semibold text-white">{value}</span>
+    </div>
+  );
+}
+
+// Connection selection card
+function ConnectionCard({
+  title,
+  titleIcon,
+  description,
+  icon,
+  selected,
+  onClick,
+}: {
+  title: string;
+  titleIcon?: React.ReactNode;
+  description: string;
+  icon: React.ReactNode;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={`flex cursor-pointer flex-col rounded-xl border p-5 text-left tracking-widest transition-all duration-200 ${
+        selected
+          ? "border-purple-400/60 bg-purple-500/10 shadow-lg shadow-purple-950/20"
+          : "border-white/10 bg-white/[0.02] hover:border-purple-400/30 hover:bg-white/[0.05]"
+      }`}
+    >
+      <div className="mb-4 flex w-full items-center justify-between">
+        <div
+          className={`rounded-lg p-3 text-xl ${
+            selected
+              ? "bg-purple-500/20 text-purple-300"
+              : "bg-white/5 text-slate-400"
+          }`}
+        >
+          {icon}
+        </div>
+
+        <div
+          className={`h-4 w-4 rounded-full border ${
+            selected
+              ? "border-purple-400 bg-purple-400 ring-4 ring-purple-400/10"
+              : "border-slate-600"
+          }`}
+        />
+      </div>
+
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        {titleIcon}
+
+        <span className="font-semibold text-white">{title}</span>
+      </div>
+
+      <p className="text-sm leading-relaxed text-slate-400">{description}</p>
+    </button>
+  );
+}

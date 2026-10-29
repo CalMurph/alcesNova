@@ -1,12 +1,19 @@
-"use client";
+import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import CreateInstance from "../components/CreateInstance";
+import { getCurrentUser } from "../lib/auth";
 
-import CreateInstance from "../components/CreateInstance"
-
-export default function Home() {
-
-
-
+export default function Page() {
   return (
-    <CreateInstance />
+    <Suspense fallback={null}>
+      <AuthenticatedCreateInstance />
+    </Suspense>
   );
+}
+
+async function AuthenticatedCreateInstance() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  return <CreateInstance />;
 }

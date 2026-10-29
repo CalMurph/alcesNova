@@ -1,9 +1,19 @@
-"use client"
-import UserHomePage from "../components/UserHomePage"
+import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import UserHomePage from "../components/UserHomePage";
+import { getCurrentUser } from "../lib/auth";
 
-export default function Home() {
+export default function HomePage() {
+  return (
+    <Suspense fallback={null}>
+      <AuthenticatedHome />
+    </Suspense>
+  );
+}
 
-    return (
-        <UserHomePage/>
-    )
+async function AuthenticatedHome() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  return <UserHomePage />;
 }
