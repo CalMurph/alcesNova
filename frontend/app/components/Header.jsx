@@ -7,6 +7,7 @@ import Link from "next/link";
 import { GiStripedSun } from "react-icons/gi";
 import { Galaxy, X } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
+import { duneFont } from "../fonts";
 
 
 const navItems = [
@@ -79,7 +80,7 @@ export default function Header() {
             <div className="flex w-full items-center justify-between px-6 lg:px-14">
                <Link
                   href="/"
-                  className="group inline-flex items-center gap-2 font-dune text-lg text-white"
+                  className={`group inline-flex items-center gap-2 ${duneFont.className} text-lg font-normal text-white`}
                >
                   <svg
                      width="0"
@@ -178,7 +179,7 @@ export default function Header() {
                      >
 
 
-                        <h2 className="font-dune text-center text-xl font-bold tracking-wider text-white transition-colors group-hover:text-purple-300 sm:text-4xl">
+                        <h2 className={`${duneFont.className} text-center text-xl font-normal tracking-wider text-white transition-colors group-hover:text-purple-300 sm:text-4xl`}>
                            Alces Nova
                         </h2>
                      </Link>

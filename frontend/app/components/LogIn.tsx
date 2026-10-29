@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { duneFont } from "../fonts";
 
 export default function LogIn() {
   const router = useRouter();
@@ -38,7 +39,7 @@ export default function LogIn() {
       <div className="">
         <div className="flex gap-4 flex-col">
           <h1 className="font-chalet w-full text-center text-white text-4xl font-semibold leading-normal ">
-            Log In to <span className="font-dune text-3xl">Alces Nova</span>
+            Log In to <span className={`${duneFont.className} text-3xl font-normal`}>Alces Nova</span>
           </h1>
           <form onSubmit={handleLogIn} className="flex flex-col gap-4">
             <div className="flex flex-col">
