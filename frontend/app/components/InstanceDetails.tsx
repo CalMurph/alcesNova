@@ -6,6 +6,7 @@ import { GoInfinity } from "react-icons/go";
 import { FaHourglass } from "react-icons/fa6";
 import { UserRound } from "lucide-react";
 import { Server, LoaderCircle } from "lucide-react";
+import { MdDelete } from "react-icons/md";
 
 import { FaChevronLeft } from "react-icons/fa6";
 import Image from "next/image";
@@ -96,6 +97,30 @@ export default function InstancePage() {
   const [timeRemaining, setTimeRemaining] = useState(0);
 
   const [user, setUser] = useState<User | null>(null);
+
+  async function handleDelete() {
+    if (!(window.confirm("Are you sure you want to delete this instance?"))) {
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/backend/v1/vviz/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      console.log(id)
+
+      if (!res.ok) {
+        alert("Unable to delete instance.");
+        return
+      }
+
+      router.push("/instances");
+    } catch (error) {
+      console.log(error);
+    }
+  }
 
   useEffect(() => {
     if (!instance?.timeLimit || !instance.uptime) return;
@@ -692,6 +717,16 @@ export default function InstancePage() {
         )}
 
         {/* Connection workspace */}
+        {user?.username === instance.user && (
+          <div className="w-full flex justify-end mt-6">
+            <button
+              onClick={handleDelete}
+              className="flex items-center border p-2 gap-1 border-red-500 bg-red-500/10 text-red-400 font-bold rounded-xl cursor-pointer duration-[500ms] transition hover:-translate-y-1"
+            >
+              Delete Instance <MdDelete size={20} />{" "}
+            </button>
+          </div>
+        )}
       </div>
     </main>
   );

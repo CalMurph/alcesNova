@@ -2,12 +2,22 @@
 
 import { useRouter } from "next/navigation";
 import { duneFont } from "../fonts";
+import { useLayoutEffect, useState } from "react";
+import { LoaderCircle } from "lucide-react";
 
 export default function LogIn() {
   const router = useRouter();
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [logginIn, setLoggingIn] = useState<boolean>(false);
+
+  useLayoutEffect(() => {
+    return () => setLoginError(null);
+  }, []);
 
   async function handleLogIn(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setLoggingIn(true);
+    setLoginError(null)
 
     const formData = new FormData(e.currentTarget);
 
@@ -28,8 +38,12 @@ export default function LogIn() {
 
     if (!res.ok) {
       console.error("Login failed");
+      setLoginError("Incorrect login details.");
+      setLoggingIn(false)
       return;
     }
+
+    setLoggingIn(false)
 
     router.replace("/home");
   }
@@ -39,7 +53,10 @@ export default function LogIn() {
       <div className="">
         <div className="flex gap-4 flex-col">
           <h1 className="font-chalet w-full text-center text-white text-4xl font-semibold leading-normal ">
-            Log In to <span className={`${duneFont.className} text-3xl font-normal`}>Alces Nova</span>
+            Log In to{" "}
+            <span className={`${duneFont.className} text-3xl font-normal`}>
+              Alces Nova
+            </span>
           </h1>
           <form onSubmit={handleLogIn} className="flex flex-col gap-4">
             <div className="flex flex-col">
@@ -64,21 +81,23 @@ export default function LogIn() {
               ></input>
             </div>
             <button
+            disabled={logginIn}
               type="submit"
-              className="
-    relative cursor-pointer isolate overflow-hidden
+              className={`flex items-center justify-center ${logginIn ? "cursor-not-allowed bg-gradient-to-r from-blue-900 via-purple-900 to-pink-900 border-0 " : "cursor-pointer transition-colors duration-500 hover:border-transparent before:absolute before:inset-0 before:-z-10 before:origin-left before:scale-x-0 before:bg-gradient-to-r before:from-blue-900 before:via-purple-900 before:to-pink-900 before:transition-transform before:duration-1000 hover:before:scale-x-100"} relative  isolate overflow-hidden
     h-12 rounded-full border px-6 font-bold
-    transition-colors duration-500 hover:border-transparent
-    before:absolute before:inset-0 before:-z-10
-    before:origin-left before:scale-x-0
-    before:bg-gradient-to-r
-    before:from-blue-900 before:via-purple-900 before:to-pink-900
-    before:transition-transform before:duration-1000
-    hover:before:scale-x-100
-  "
+    `}
             >
-              Log In
+              {logginIn ? (
+                <LoaderCircle className="animate-spin justify-center text-center"></LoaderCircle>
+              ) : (
+                "Log In"
+              )}
             </button>{" "}
+            {loginError && (
+              <div className="w-full border p-4 rounded-lg border-red-500/80 bg-red-500/10">
+                <p className="text-center text-red-300 text-md">{loginError}</p>
+              </div>
+            )}
           </form>
         </div>
       </div>

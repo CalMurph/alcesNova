@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { GoClock } from "react-icons/go";
+import { IoIosDesktop } from "react-icons/io";
+import { Monitor, Terminal, CheckCircle2, Info } from "lucide-react";
 
 function timeToString(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -130,9 +132,11 @@ const softwareLogoPaths: Record<string, string> = {
   tensorflow: "/images/softwareLogos/tensorFlow.svg",
 };
 
+
+
 function SoftwareLogo({ name }: { name: string }) {
   const key = name.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const src = softwareLogoPaths[key];
+  const src = `/images/softwareLogos/${name}.svg`
 
   return src ? (
     <Image
@@ -141,7 +145,7 @@ function SoftwareLogo({ name }: { name: string }) {
       width={160}
       height={64}
       className={`h-12 w-full object-contain ${
-        key === "python" ? "scale-205" : ""
+        key === "python" ? "scale-205" : key === "podman" ? "scale-130" : key === "docker" ? "scale-150" : key === "jupyter" ? "scale-135" : ""
       }`}
     />
   ) : (
@@ -185,11 +189,12 @@ const launchSteps = [
   { number: 1, title: "Flavour", detail: "Choose your resources" },
   {
     number: 2,
-    title: "Operating system (OS)",
+    title: "Operating system ",
     detail: "Choose your operating system",
   },
   { number: 3, title: "Software packages", detail: "Choose your tools (Optional)" },
   { number: 4, title: "Time", detail: "Choose how long you want" },
+  { number: 5, title: "GUI", detail: "Configure a GUI for your terminal (Optional)" }
 ] as const;
 
 const minTimeLimitSeconds = 30 * 60;
@@ -207,7 +212,7 @@ function formatTimeLimit(seconds: number) {
 }
 
 export default function Home() {
-  const [activeStep, setActiveStep] = useState<1 | 2 | 3 | 4>(1);
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [selectedInstance, setSelectedInstance] = useState("");
   const [selectedOs, setSelectedOs] = useState("");
   const [selectedPlate, setSelectedPlate] = useState("");
@@ -218,6 +223,7 @@ export default function Home() {
   const [softwarePackages, setSoftwarePackages] = useState<Software[] | null>(
     null,
   );
+  const [guiEnabled, setGuiEnabled] = useState<boolean>(false);
   const [softwareError, setSoftwareError] = useState(false);
 
   const [plates, setPlates] = useState<Plate[] | null>(null);
@@ -314,10 +320,12 @@ export default function Home() {
     flavour: string,
     plate: string,
     seasonings: string[],
-    timeLimit: number
+    timeLimit: number,
+    gui: boolean
   ) {
     setIsCreating(true);
     setCreateMessage("");
+
 
     try {
         const timeString = timeToString(timeLimit)
@@ -325,7 +333,7 @@ export default function Home() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ flavour, plate, seasonings, timeLimit: timeString }),
+        body: JSON.stringify({ flavour, plate, seasonings, timeLimit: timeString, gui }),
       });
 
       if (!response.ok) {
@@ -335,13 +343,20 @@ export default function Home() {
         );
       }
 
-      setCreateMessage("Create request sent.");
+     
       router.push("/instances");
     } catch (error) {
       console.error(error);
       setCreateMessage("Could not create the instance. Please try again.");
     } finally {
       setIsCreating(false);
+      setActiveStep(1)
+      setSelectedInstance("")
+      setSelectedOs("")
+      setSoftwarePackages([])
+      setSelectedTimeLimitSeconds(3600)
+      setSelectedPlate("")
+      setGuiEnabled(false)
     }
   }
 
@@ -389,7 +404,7 @@ export default function Home() {
   }
   const selectedOsGroup = osGroups.get(selectedOs);
 
-  function goToStep(step: 1 | 2 | 3 | 4) {
+  function goToStep(step: 1 | 2 | 3 | 4 | 5) {
     setActiveStep(step);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -408,18 +423,18 @@ export default function Home() {
       </div>
 
       <section aria-label="Launch steps" className="mt-10 w-full">
-        <ol className="grid grid-cols-4 gap-3 sm:gap-6">
+        <ol className="grid grid-cols-5 gap-3 sm:gap-6">
           {launchSteps.map((step) => (
             <li
               key={step.number}
               aria-current={step.number === activeStep ? "step" : undefined}
-              className="min-w-0"
+              className="flex flex-col min-w-0"
             >
               <button
                 type="button"
                 disabled={isCreating || !selectedFlavour}
                 onClick={() => goToStep(step.number)}
-                className="flex items-center gap-2 rounded-lg text-left cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-purple-400 disabled:cursor-default sm:gap-3"
+                className="flex flex-1 items-center gap-2 rounded-lg text-left cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-purple-400 disabled:cursor-default sm:gap-3"
               >
                 <span
                   className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border text-sm font-semibold sm:h-11 sm:w-11 ${
@@ -858,6 +873,122 @@ export default function Home() {
           </section>
         )}
 
+          {activeStep === 5 && (
+         <section aria-labelledby="gui-heading">
+  <div className="flex w-full flex-wrap items-center justify-between gap-3">
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-300">
+        Step 5
+      </p>
+      <h2
+        id="gui-heading"
+        className="font-chalet mt-2 text-3xl font-semibold text-white"
+      >
+        Configure Graphical User Interface
+      </h2>
+      <p className="mt-2 text-sm text-slate-400">
+        Configure your job so that you can interact with your virtual
+        computer through a GUI.
+      </p>
+    </div>
+  </div>
+
+  <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-7">
+    <div className="flex items-center gap-4">
+      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-purple-400/25 bg-purple-500/10 text-purple-300">
+        <IoIosDesktop size={24} />
+      </span>
+      <div>
+        <p className="font-semibold text-white">Graphical Desktop</p>
+        <p className="mt-1 text-sm text-slate-400">
+          Choose how you would like to interact with your instance.
+        </p>
+      </div>
+    </div>
+
+    <div className="mt-8 grid gap-4 sm:grid-cols-2">
+  
+
+      <button
+        type="button"
+        aria-pressed={!guiEnabled}
+        onClick={() => setGuiEnabled(false)}
+        className={`relative flex flex-col rounded-xl border p-5 text-left transition-all duration-200 ${
+          !guiEnabled
+            ? "border-purple-400 bg-purple-500/10"
+            : "border-slate-700 bg-slate-950/40 hover:border-slate-500"
+        } cursor-pointer`}
+      >
+        <div className="flex w-full items-center justify-between">
+          <span className="grid h-10 w-10 place-items-center rounded-lg bg-slate-800 text-slate-400">
+            <Terminal size={22} />
+          </span>
+
+          <CheckCircle2
+            size={21}
+            className={
+              !guiEnabled ? "text-purple-400" : "text-slate-600"
+            }
+          />
+        </div>
+
+        <p className="mt-5 font-semibold text-white">
+          Command Line
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-slate-400">
+          Access and manage your instance through a terminal
+          without a graphical desktop.
+        </p>
+      </button>
+
+          <button
+        type="button"
+        aria-pressed={guiEnabled}
+        onClick={() => setGuiEnabled(true)}
+        className={`relative flex flex-col rounded-xl border p-5 text-left transition-all duration-200 ${
+          guiEnabled
+            ? "border-purple-400 bg-purple-500/10"
+            : "border-slate-700 bg-slate-950/40 hover:border-slate-500"
+        } cursor-pointer`}
+      >
+        <div className="flex w-full items-center justify-between">
+          <span className="grid h-10 w-10 place-items-center rounded-lg bg-purple-500/10 text-purple-300">
+            <IoIosDesktop size={22} />
+          </span>
+
+          <CheckCircle2
+            size={21}
+            className={
+              guiEnabled ? "text-purple-400" : "text-slate-600"
+            }
+          />
+        </div>
+
+        <p className="mt-5 font-semibold text-white">
+          Graphical Desktop
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-slate-400">
+          Interact with your instance using a visual desktop
+          environment.
+        </p>
+      </button>
+    </div>
+
+    <div className="mt-5 flex items-start gap-3 rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+      <Info
+        size={18}
+        className="mt-0.5 shrink-0 text-purple-300"
+      />
+      <p className="text-sm leading-relaxed text-slate-400">
+        {guiEnabled
+          ? "A graphical desktop allows you to interact with applications and files using a familiar visual environment."
+          : "Your instance will run without a graphical desktop. You can still access it using command-line tools."}
+      </p>
+    </div>
+  </div>
+</section>
+        )}
+
         <div className="mt-8 flex flex-wrap items-center justify-between gap-4">
           {activeStep > 1 && (
             <button
@@ -872,7 +1003,7 @@ export default function Home() {
             </button>
           )}
 
-          {activeStep < 4 ? (
+          {activeStep < 5 ? (
             <button
               type="button"
               disabled={
@@ -883,7 +1014,7 @@ export default function Home() {
                     : false
               }
               onClick={() =>
-                goToStep(activeStep === 1 ? 2 : activeStep === 2 ? 3 : 4)
+                goToStep(activeStep === 1 ? 2 : activeStep === 2 ? 3 : activeStep === 3 ? 4 : 5)
               }
               className="ml-auto rounded-full border border-purple-400/30 bg-gradient-to-r cursor-pointer from-blue-600 to-purple-600 px-8 py-3 font-medium text-white shadow-lg shadow-purple-900/20 transition-colors hover:from-blue-500 hover:to-purple-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -899,7 +1030,9 @@ export default function Home() {
                   selectedFlavour.name,
                   selectedPlate,
                   selectedPackages,
-                  selectedTimeLimitSeconds
+                  selectedTimeLimitSeconds,
+                  guiEnabled
+
                 )
               }
               className="ml-auto rounded-full border border-purple-400/30 bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-3 cursor-pointer font-medium text-white shadow-lg shadow-purple-900/20 transition-colors hover:from-blue-500 hover:to-purple-500 disabled:cursor-not-allowed disabled:opacity-50"
